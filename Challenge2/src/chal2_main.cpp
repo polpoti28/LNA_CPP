@@ -37,6 +37,7 @@ int main() {
   // TASK 2
   // ---------
 
+  // Contructing v_g vector
   VectorXd v_g(n);
   for (int i = 0; i < n; i++) {
     int sum = 0;
@@ -46,6 +47,7 @@ int main() {
     v_g[i] = sum;
   }
 
+  // Computing the graph Laplacian L_g and the product L_g * x
   MatrixXd D_g = v_g.asDiagonal();
   MatrixXd L_g = D_g - A_g;
   VectorXd x = VectorXd::Ones(n);
@@ -57,6 +59,10 @@ int main() {
   // TASK 3
   // ---------
 
+
+
+
+  // We use the SelfAdjointEigenSolver to compute the eigenvalues as L_g is symmetric
   Eigen::SelfAdjointEigenSolver<MatrixXd> solver(L_g);
   Eigen::VectorXd eivals = solver.eigenvalues();
   cout << "The eigenvalues of the L_g matrix are:" << endl << eivals << endl;
@@ -68,10 +74,69 @@ int main() {
   cout << "The smallest eigenvalue is: " << min_eigenvalue << endl;
 
 
+  // Version 2 using Householder transformation
+  // Once we computed the smallest eigenvalue I want to compute the corresponding eigenvector
+  int index_min_eigenvalue;
+  for (int i = 0; i < n; i++) {
+    if (eivals[i] == min_eigenvalue) {
+      index_min_eigenvalue = i;
+      break;
+    }
+  }
+
+  cout << "eigenvectos " << endl << solver.eigenvectors() << endl;
+  cout << "The index of the smallest eigenvalue is: " << index_min_eigenvalue << endl;
+
+
+
+  VectorXd min_eigenvector = solver.eigenvectors().col(index_min_eigenvalue);
+  cout << "The corresponding eigenvector is: " << endl << min_eigenvector << endl;
+
+
+  
+  MatrixXd H(n,n); 
+  MatrixXd I(n,n);
+  I.setIdentity();
+
+  VectorXd e1 = VectorXd::Zero(n);
+  e1(0) = 1.0;
+
+
+  VectorXd u = min_eigenvector - min_eigenvector.norm() * e1;   
+  if (u.norm() < 1e-12) {
+    u = VectorXd::Zero(n);
+    u(1) = 1.0;  
+  }
+  u.normalize();
+
+
+  // We construct the Householder matrix H by using the Householder transformation
+  H = I - 2.0*u*u.transpose();
+
+  // I compute Matrix S that contains the min eigenvalue in the first position of the diagonal
+  MatrixXd S = H * L_g * H.transpose();
+  cout << "The matrix S is: " << endl << S << endl; 
+
+  MatrixXd A_deflated = S.block(1, 1, n - 1, n - 1);
+
+  // We use the SelfAdjointEigenSolver to compute the eigenvalues of the deflated matrix
+  Eigen::SelfAdjointEigenSolver<MatrixXd> solver_deflated(A_deflated);
+  Eigen::VectorXd eivals_deflated = solver_deflated.eigenvalues();
+  cout << "The eigenvalues of the deflated matrix are:" << endl << eivals_deflated << endl; 
+  double min_deflated_eigenvalue = eivals_deflated.minCoeff();
+  cout << "The second smallest eigenvalue is: " << min_deflated_eigenvalue << endl;
+
+
+
+ 
+
+
   // ---------
   // TASK 4
   // ---------
 
+
+  // We look for the second smallest eigenvalue by iterating over the eigenvalues
   double min = 100;
   int min_index = 0;
   for (int i = 0; i < eivals.size() ; ++i){
@@ -91,7 +156,7 @@ int main() {
   // ---------
   // TASK 5
   // ---------
-
+  
   SparseMatrix<double> A_s;
   loadMarket(A_s, "social.mtx");
   cout << "The Frobenius norm of the matrix A_s is: " << A_s.norm() << endl;
@@ -101,6 +166,9 @@ int main() {
   // TASK 6
   // ---------
   
+  
+  
+  // Filling D_S as a sparse matrix
   int n_s = A_s.rows();
   SparseMatrix<double> D_s(n_s,n_s);
   for (int i = 0; i < n_s; i++) {
@@ -111,6 +179,7 @@ int main() {
     D_s.insert(i, i) = sum;
   }
 
+  // Constructing the graph Laplacian L_s from A_s
   SparseMatrix<double> L_s = D_s - A_s;
   cout << "Number of non zero elements in L_s: " << L_s.nonZeros() << endl;
   // Checking if L_s is symmetric
@@ -124,6 +193,7 @@ int main() {
   // ---------
   // TASK 7
   // ---------
+
 
   /* We add a perturbation to the first diagonal entry
    * of L_s, export it to a .mtx file and use a LIS
@@ -176,7 +246,6 @@ int main() {
     }
   }
 
-
   cout << "Number of positive entries: " << n_p << endl;
   cout << "Number of negative entries: " << n_n << endl;
 
@@ -185,6 +254,8 @@ int main() {
   // TASK 10
   // ---------
 
+
+  // Constructing the permutation matrix P  
   SparseMatrix<double> P(n_s, n_s);
   for (int i = 0; i < n_p; i++) {
     P.coeffRef(i, clusterA[i]) = 1;
@@ -193,11 +264,17 @@ int main() {
     P.coeffRef(i+n_p, clusterB[i]) = 1;
   }
   
+  //Constructing the reodered adjacency matrix A_ord
   SparseMatrix<double> A_ord = P * A_s * P.transpose();
-
+ // n_p = 52
+  // n_n = 299
   SparseMatrix<double> nonDiagAord = A_ord.topRightCorner(n_p, n_n);
+  //CRows	the number of rows in the corner
+  //CCols	the number of columns in the corner
+ 
   cout << nonDiagAord.nonZeros() << endl;
 
   SparseMatrix<double> nonDiagAs = A_s.topRightCorner(n_p, n_n);
   cout << nonDiagAs.nonZeros() << endl;
+
 }
