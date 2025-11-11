@@ -3,14 +3,14 @@
 #include <iostream>
 #include <fstream>
 #include <unsupported/Eigen/SparseExtra>
-#include "utils.h"
+
+Eigen::MatrixXd graphToMat(const std::string& filename);
 
 using std::cout;
 using std::endl;
 using Eigen::MatrixXd;
 using Eigen::SparseMatrix;
 using Eigen::VectorXd;
-
 
 int main() {
   int n = 9;
@@ -19,17 +19,7 @@ int main() {
   // TASK 1
   // ---------
 
-  MatrixXd A_g(n,n);
-  A_g <<  0, 1, 0, 1, 0, 0, 0, 0, 0,
-          1, 0, 1, 0, 0, 0, 0, 0, 0,
-          0, 1, 0, 1, 1, 0, 0, 0, 0,
-          1, 0, 1, 0, 0, 0, 0, 0, 0,
-          0, 0, 1, 0, 0, 1, 0, 1, 1,
-          0, 0, 0, 0, 1, 0, 1, 0, 0,
-          0, 0, 0, 0, 0, 1, 0, 1, 1,
-          0, 0, 0, 0, 1, 0, 1, 0, 1,
-          0, 0, 0, 0, 1, 0, 1, 1, 0;
-
+  MatrixXd A_g = graphToMat("graph.txt");
   cout << "The Frobenius norm of the matrix A_g is: " << A_g.norm() << endl;
 
 
@@ -52,15 +42,12 @@ int main() {
   MatrixXd L_g = D_g - A_g;
   VectorXd x = VectorXd::Ones(n);
   VectorXd y = L_g * x;
-  cout << y.norm() << endl;
+  cout << "The norm of y is: " << y.norm() << endl;
 
   
   // ---------
   // TASK 3
   // ---------
-
-
-
 
   // We use the SelfAdjointEigenSolver to compute the eigenvalues as L_g is symmetric
   Eigen::SelfAdjointEigenSolver<MatrixXd> solver(L_g);
@@ -74,6 +61,10 @@ int main() {
   cout << "The smallest eigenvalue is: " << min_eigenvalue << endl;
 
 
+  /*
+  * OPTIONAL
+  */
+
   // Version 2 using Householder transformation
   // Once we computed the smallest eigenvalue I want to compute the corresponding eigenvector
   int index_min_eigenvalue;
@@ -84,13 +75,13 @@ int main() {
     }
   }
 
-  cout << "eigenvectos " << endl << solver.eigenvectors() << endl;
-  cout << "The index of the smallest eigenvalue is: " << index_min_eigenvalue << endl;
+  //cout << "eigenvectors " << endl << solver.eigenvectors() << endl;
+  //cout << "The index of the smallest eigenvalue is: " << index_min_eigenvalue << endl;
 
 
 
   VectorXd min_eigenvector = solver.eigenvectors().col(index_min_eigenvalue);
-  cout << "The corresponding eigenvector is: " << endl << min_eigenvector << endl;
+  //cout << "The corresponding eigenvector is: " << endl << min_eigenvector << endl;
 
 
   
@@ -109,11 +100,11 @@ int main() {
   }
   u.normalize();
 
-
   // We construct the Householder matrix H by using the Householder transformation
   H = I - 2.0*u*u.transpose();
 
-  // I compute Matrix S that contains the min eigenvalue in the first position of the diagonal
+  // We compute the Matrix S that contains the min eigenvalue 
+  // in the first position of the diagonal
   MatrixXd S = H * L_g * H.transpose();
   cout << "The matrix S is: " << endl << S << endl; 
 
@@ -122,19 +113,15 @@ int main() {
   // We use the SelfAdjointEigenSolver to compute the eigenvalues of the deflated matrix
   Eigen::SelfAdjointEigenSolver<MatrixXd> solver_deflated(A_deflated);
   Eigen::VectorXd eivals_deflated = solver_deflated.eigenvalues();
+  cout << "Optional way using Housolder transformation" << endl;
   cout << "The eigenvalues of the deflated matrix are:" << endl << eivals_deflated << endl; 
   double min_deflated_eigenvalue = eivals_deflated.minCoeff();
   cout << "The second smallest eigenvalue is: " << min_deflated_eigenvalue << endl;
 
 
-
- 
-
-
   // ---------
   // TASK 4
   // ---------
-
 
   // We look for the second smallest eigenvalue by iterating over the eigenvalues
   double min = 100;
@@ -148,9 +135,19 @@ int main() {
     }
   }
 
+  VectorXd eigvecs = solver.eigenvectors().col(min_index);
   cout << "The second smallest eigenvalue is: " << min << endl;
-  cout << "The corrisponding eigenvector is: " << endl << solver.eigenvectors().col(min_index) << endl;
+  cout << "The corresponding eigenvector is: " << endl << eigvecs << endl;
   cout << L_g << endl;
+
+  // Check for a reasonable clustering choice
+  for (int i = 0; i < eigvecs.rows(); ++i) {
+    if (i < 4) {
+      assert(eigvecs[i] > 0);
+    } else {
+      assert(eigvecs[i] < 0);
+    }
+  }
 
   
   // ---------
@@ -158,14 +155,13 @@ int main() {
   // ---------
   
   SparseMatrix<double> A_s;
-  loadMarket(A_s, "social.mtx");
+  loadMarket(A_s, "../data/social.mtx");
   cout << "The Frobenius norm of the matrix A_s is: " << A_s.norm() << endl;
 
 
   // ---------
   // TASK 6
   // ---------
-  
   
   
   // Filling D_S as a sparse matrix
@@ -194,7 +190,6 @@ int main() {
   // TASK 7
   // ---------
 
-
   /* We add a perturbation to the first diagonal entry
    * of L_s, export it to a .mtx file and use a LIS
    * solver to compute the largest eigenvalue of L_s */
@@ -207,21 +202,21 @@ int main() {
     cout << "perturbed L_s is not symmetric" << endl; 
   }
   saveMarket(L_s, "L_s.mtx");
-  int ret = system("./run_test.sh");
+  int ret = system("../data/run_test.sh");
 
 
   // ---------
   // TASK 8
   // ---------
 
-  //int ret2 = system("./run_testshift.sh");
+  int ret2 = system("../data/run_testshift.sh");
 
 
   // ---------
   // TASK 9
   // ---------
 
-  //int ret3 = system("./run_test_inverse.sh");
+  int ret3 = system("../data/run_test_inverse.sh");
 
 
   // ---------
@@ -254,7 +249,6 @@ int main() {
   // TASK 10
   // ---------
 
-
   // Constructing the permutation matrix P  
   SparseMatrix<double> P(n_s, n_s);
   for (int i = 0; i < n_p; i++) {
@@ -266,15 +260,37 @@ int main() {
   
   //Constructing the reodered adjacency matrix A_ord
   SparseMatrix<double> A_ord = P * A_s * P.transpose();
- // n_p = 52
-  // n_n = 299
   SparseMatrix<double> nonDiagAord = A_ord.topRightCorner(n_p, n_n);
-  //CRows	the number of rows in the corner
-  //CCols	the number of columns in the corner
- 
+  
   cout << nonDiagAord.nonZeros() << endl;
 
   SparseMatrix<double> nonDiagAs = A_s.topRightCorner(n_p, n_n);
   cout << nonDiagAs.nonZeros() << endl;
 
+  return 0;
+}
+
+/*
+ * Takes a graph in edge list format and returns the 
+ * adjacency matrix associated to the graph as an Eigen
+ * matrix */   
+Eigen::MatrixXd graphToMat(const std::string& filename) {
+  std::ifstream in(filename);
+  if (!in) {
+    cout << "Couldn't open the file" << endl;
+  }
+  
+  std::string line;
+
+  int n, edges; // Number of vertices
+  in >> n >> edges;
+  Eigen::MatrixXd A = Eigen::MatrixXd::Zero(n, n);
+
+  int i, j;
+  while(in >> i >> j) {
+    A(i-1, j-1) = 1;
+    A(j-1, i-1) = 1;
+  }
+
+  return A;
 }
